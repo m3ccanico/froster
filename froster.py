@@ -34,6 +34,10 @@ def read_parameter(argv):
     parser.add_argument('folder', type=str, help='the folder to upload')
     args = parser.parse_args()
     
+    if not os.path.isdir(args.folder):
+        print "folder %s is not a directory or does not exist" % args.folder
+        sys.exit(2)
+    
     return args
 
 
