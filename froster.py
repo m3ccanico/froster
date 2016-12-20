@@ -88,10 +88,11 @@ def delete_temp_file(filename):
 def main(argv):
     args = read_parameter(argv)
     
-    level = logging.WARNING  # WARNING INFO
     if args.debug:
         level = logging.DEBUG
-    logging.basicConfig(level=level,format="%(levelname)s: %(message)s")
+        logging.basicConfig(level=logging.DEBUG,format="%(levelname)s: %(message)s")
+    else:
+        logging.basicConfig(level=logging.WARNING,format="%(message)s")
     
     logging.info('Input folder:            %s' % args.folder)
     
