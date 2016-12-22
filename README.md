@@ -1,6 +1,12 @@
 # Introduction
 
-Froster is a collection of three scripts to upload, download, or list data on Amazon Glacier.
+Froster is a collection of three scripts to upload, download, or list data from Amazon Glacier.
+
+The script `froster.py` creates a TAR file of all files within a folder, optionally compress it, and uploads it to Amazon Glacer.
+
+The script `list.py` lists all archives in a vault on Amazon Glacier.
+
+The script `defroster.py` downloads an archive from a vault and unpacks the TAR file into a specific folder.
 
 # Installation
 
@@ -9,7 +15,7 @@ Download the scripts as a ZIP file or clone them with git:
 git clone https://github.com/m3ccanico/froster.git
 ```
 
-You'll need Python installed on you system and you might need to install additional Pyhton modules:
+You'll need Python to be installed on you system and you might need to install additional Pyhton modules:
 ```bash
 pip install boto3 treehash
 ```
