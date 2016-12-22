@@ -72,12 +72,12 @@ def calc_hash(filename):
 
 
 def upload_to_glacier(filename, size, description, vault_name, tree_hash):
-    SIZE_LIMT = 100*1024*1024       # 100 MB is the recommendation
+    SIZE_LIMIT = 100*1024*1024       # 100 MB is the recommendation
     JUNK_SIZE = 16*1024*1024        # must be a power of 2
     
     glacier_client = boto3.client('glacier')
     
-    if size > SIZE_LIMT:
+    if size > SIZE_LIMIT:
         logging.info("Uploading multipart:     %s" % filename)
         
         # inform AWS that we want to upload junks

@@ -13,17 +13,11 @@
 
 
 import sys
-import os
 import argparse
-#import tarfile
-#import tempfile
-#import hashlib
 import boto3
-#import treehash
 import logging
 import datetime
 import time
-import math
 import json
 
 
@@ -113,8 +107,8 @@ def main(argv):
     logging.info('List archives in %s' % args.vault)
     
     glacier_client = boto3.client('glacier')
-    #job_id = start_list_job(glacier_client, args.vault)
-    job_id = '37Q9FXefFtbPlOx2512mFL_hO7m5lSn66w3LiudXkMYmFfqGnxKjtxne-D3SZmdD9d3-qLJInhkZMwdPY8aJVW8_29MG'
+    job_id = start_list_job(glacier_client, args.vault)
+    #job_id = '37Q9FXefFtbPlOx2512mFL_hO7m5lSn66w3LiudXkMYmFfqGnxKjtxne-D3SZmdD9d3-qLJInhkZMwdPY8aJVW8_29MG'
     
     monitor_job(glacier_client, args.vault, job_id)
     logging.info('Inventory is ready')
