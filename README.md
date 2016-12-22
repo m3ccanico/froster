@@ -30,6 +30,7 @@ Test them with
 ## AWS
 
 You'll need to have a AWS account (https://aws.amazon.com/) to run these scripts. In AWS you'll need to
+
 1. Create a Galcier Vault (e.g. Photos)
 2. Create an user (e.g. frosty) for the script under the IAM. This will give you an *access key ID* and ab *secret access key*.
 3. Give the user the permiss *AmazonGlacierFullAccess*
