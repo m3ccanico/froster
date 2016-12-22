@@ -25,6 +25,11 @@ import datetime
 import time
 import math
 
+from common import monitor_job
+from common import sizeof_fmt
+from common import delete_temp_file
+from common import get_tree_hash_of_file
+
 
 def read_parameter(argv):
     
@@ -55,39 +60,6 @@ def start_retrieval_job(glacier_client, vault_name, archive_id):
     )
     
     return response['jobId'], response['SHA256TreeHash']
-
-
-def monitor_job(glacier_client, vault_name, job_id):
-    SLEEP = 60*60 # check every hour if job is completed
-    
-    while True:
-        response = glacier_client.list_jobs(
-            vaultName = vault_name,
-            #limit='string',
-            #marker='string',
-            #statuscode='string',
-            completed = 'true'
-        )
-        
-        found = False
-        completed = False
-        
-        for job in response['JobList']:
-            #print job
-            if job['JobId'] == job_id:
-                found = True
-                completed = job['Completed']
-                break
-        
-        if found and completed:
-            return int(job['ArchiveSizeInBytes'])
-        
-        if found:
-            end = time.localtime(time.time() + SLEEP)
-            logging.info('Job is not completed yet, going back to sleep until %s' % time.strftime('%H:%M', end))
-            time.sleep(SLEEP)
-        else: 
-            logging.error('Job not found: %s' % job_id)
 
 
 def download_archive(glacier_client, vault_name, job_id, size, tree_hash_hex):
@@ -164,26 +136,12 @@ def download_archive(glacier_client, vault_name, job_id, size, tree_hash_hex):
                     break
         
     # check checksum
-    tree_hash = calc_hash(tar_file_name)
-    if tree_hash.hexdigest() != tree_hash_hex:
+    file_tree_hash = get_tree_hash_of_file(tar_file_name)
+    if file_tree_hash != tree_hash_hex:
         logging.error('SHA256TreeHash mismatch, download failed!')
         sys.exit(2)
         
     return tar_file_name
-
-
-def calc_hash(filename):
-    BUF_SIZE = 1024**2
-    tree_hash = treehash.TreeHash()     # default is SHA-256 and 1 MB
-    
-    with open(filename, 'rb') as f:
-        while True:
-            data = f.read(BUF_SIZE)
-            if not data:
-                break
-            tree_hash.update(data)
-    
-    return tree_hash
 
 
 def unpack_tar_file(tar_file_name, output_folder):
@@ -191,51 +149,32 @@ def unpack_tar_file(tar_file_name, output_folder):
         tar_file.extractall(output_folder)
 
 
-def delete_temp_file(filename):
-    os.remove(filename)
-
-
-def get_file_size(filename):
-    return os.path.getsize(filename)
-
-
-def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
-
-
 def main(argv):
     args = read_parameter(argv)
     
     if args.info:
-        logging.basicConfig(level=logging.INFO,format="%(levelname)s: %(message)s")
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     if args.debug:
-        logging.basicConfig(level=logging.DEBUG,format="%(levelname)s: %(message)s")
+        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
     else:
-        logging.basicConfig(level=logging.WARNING,format="%(message)s")
+        logging.basicConfig(level=logging.WARNING, format="%(message)s")
     
     logging.info('Archive ID: %s' % args.archive_id)
     
     glacier_client = boto3.client('glacier')
-    #job_id, tree_hash_hex = start_retrieval_job(glacier_client, args.vault, args.archive_id)
+    job_id, tree_hash_hex = start_retrieval_job(glacier_client, args.vault, args.archive_id)
     ## 190 MB job
-    job_id = 'p1Uv1IN7BQaveZLr843hheHQ1rrF47k37HscMl038m_TPtKMlyWFuXGTVc4A_o2Gknqp0wqCFA0sfLjaLHineXHkkBgb'
-    tree_hash_hex = '37436496846009fd0c40fac72db10ff61457074ee4af730ef5a3abb6a06a367b'
+    #job_id = 'p1Uv1IN7BQaveZLr843hheHQ1rrF47k37HscMl038m_TPtKMlyWFuXGTVc4A_o2Gknqp0wqCFA0sfLjaLHineXHkkBgb'
+    #tree_hash_hex = '37436496846009fd0c40fac72db10ff61457074ee4af730ef5a3abb6a06a367b'
     ## 3 MB job
     # job_id = 'hwz0r-BfGXJ69ks5iC6PPA4AnAEVpd222G1mGOUMaG1OuP0qO8oy_iqq7mQxwOzL7Qpz5FlPhd6eVF4Tx0MMdtM4X5be'
     #tree_hash_hex = '3b0a8b676f33708ef577838a68cf1a1c591c981af1f9d03a50a568af79c4965d'
     logging.info('Job is created: %s' % job_id)    
     
     size = monitor_job(glacier_client, args.vault, job_id)
-    #byte_range = '0-3194879'
     logging.info('Job is completed, size: %s (%i)' % (sizeof_fmt(size), size))
     
     tar_file_name = download_archive(glacier_client, args.vault, job_id, size, tree_hash_hex)
-    #tar_file_name = '/var/folders/f2/jncgl3d13hd_lpx5x9290gmw0000gn/T/tmpToNSsp.tar'
-    #size = get_file_size(tar_file_name)
     logging.info('Downloaded TAR file: %s (%s)' % (tar_file_name, sizeof_fmt(size)))
     
     unpack_tar_file(tar_file_name, args.folder)
@@ -243,6 +182,9 @@ def main(argv):
     
     delete_temp_file(tar_file_name)
     logging.info('Removed temporary TAR file')
+    
+    now = datetime.datetime.now()
+    print "%s\t%s\t%s\t%s\t%s" % (now, args.folder, args.vault, archive_id, tree_hash_hex)
 
 
 if __name__ == "__main__":

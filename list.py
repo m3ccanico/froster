@@ -20,6 +20,9 @@ import datetime
 import time
 import json
 
+from common import monitor_job
+from common import sizeof_fmt
+
 
 def read_parameter(argv):
     
@@ -27,56 +30,22 @@ def read_parameter(argv):
     parser.add_argument('-a', '--vault', default='Photos', help='the name of the vault the archive is uploaded to')
     parser.add_argument('-d', '--debug', action='store_true', default=False, help='if debugging and info messages should be shown (default=no)')
     parser.add_argument('-i', '--info', action='store_true', default=False, help='if info messages should be shown (default=no)')
-    #parser.add_argument('archive_id', type=str, help='the archive ID to download')
-    #parser.add_argument('folder', type=str, help='the folder to download and unpack into')
+    parser.add_argument('-t', '--timeout', default=60, help='the number of minutes to wait between job status checks (default=60)')
     args = parser.parse_args()
     
     return args
 
 
 def start_list_job(glacier_client, vault_name):
-    time = time.strftime('%Y-%m-%d %H:%M:%S', end)
+    ts = time.strftime('%Y-%m-%d %H:%M:%S')
     response = glacier_client.initiate_job(
         vaultName = vault_name,
         jobParameters = {
             'Type': 'inventory-retrieval',
-            'Description': 'Inventory retrieval at %s' % time,
+            'Description': 'Inventory retrieval at %s' % ts,
         }
     )
     return response['jobId']
-
-
-def monitor_job(glacier_client, vault_name, job_id):
-    SLEEP = 20*60 # check every 20min if job is completed
-    
-    while True:
-        response = glacier_client.list_jobs(
-            vaultName = vault_name,
-            #limit='string',
-            #marker='string',
-            #statuscode='string',
-            completed = 'true'
-        )
-        
-        found = False
-        completed = False
-        
-        for job in response['JobList']:
-            #print job
-            if job['JobId'] == job_id:
-                found = True
-                completed = job['Completed']
-                break
-        
-        if found and completed:
-            return int(job['ArchiveSizeInBytes'])
-        
-        if found:
-            end = time.localtime(time.time() + SLEEP)
-            logging.info('Job is not completed yet, going back to sleep until %s' % time.strftime('%H:%M', end))
-            time.sleep(SLEEP)
-        else: 
-            logging.error('Job not found: %s' % job_id)
 
 
 def download_inventory(glacier_client, vault_name, job_id):
@@ -100,31 +69,23 @@ def print_inventory(inventory):
         
 
 
-def sizeof_fmt(num, suffix='B'):
-    for unit in ['','Ki','Mi','Gi','Ti','Pi','Ei','Zi']:
-        if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
-        num /= 1024.0
-    return "%.1f%s%s" % (num, 'Yi', suffix)
-
-
 def main(argv):
     args = read_parameter(argv)
     
     if args.info:
-        logging.basicConfig(level=logging.INFO,format="%(levelname)s: %(message)s")
+        logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     if args.debug:
-        logging.basicConfig(level=logging.DEBUG,format="%(levelname)s: %(message)s")
+        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s: %(message)s")
     else:
-        logging.basicConfig(level=logging.WARNING,format="%(message)s")
+        logging.basicConfig(level=logging.WARNING, format="%(message)s")
     
     logging.info('List archives in %s' % args.vault)
     
     glacier_client = boto3.client('glacier')
     job_id = start_list_job(glacier_client, args.vault)
-    #job_id = '37Q9FXefFtbPlOx2512mFL_hO7m5lSn66w3LiudXkMYmFfqGnxKjtxne-D3SZmdD9d3-qLJInhkZMwdPY8aJVW8_29MG'
+    #job_id = 'OtXy6xs7IXyCQKz7oLy0i1PVN-Ym-hJgxI9osCCJ3ZBE0BjRGfHqwWry2sj_c4UcghPNxTn7spF6cU1beronoNNCamjT'
     
-    monitor_job(glacier_client, args.vault, job_id)
+    monitor_job(glacier_client, args.vault, job_id, args.timeout)
     logging.info('Inventory is ready')
     
     inventory = download_inventory(glacier_client, args.vault, job_id)
