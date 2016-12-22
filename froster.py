@@ -22,7 +22,7 @@ import treehash
 import logging
 import datetime
 import math
-
+import re
 
 def read_parameter(argv):
     
@@ -73,48 +73,48 @@ def calc_hash(filename):
 
 def upload_to_glacier(filename, size, description, vault_name, tree_hash):
     SIZE_LIMIT = 100*1024*1024       # 100 MB is the recommendation
-    JUNK_SIZE = 16*1024*1024        # must be a power of 2
+    CHUNK_SIZE = 16*1024*1024        # must be a power of 2
     
     glacier_client = boto3.client('glacier')
     
     if size > SIZE_LIMIT:
         logging.info("Uploading multipart:     %s" % filename)
         
-        # inform AWS that we want to upload junks
+        # inform AWS that we want to upload chunks
         response = glacier_client.initiate_multipart_upload(
             vaultName=vault_name,
             archiveDescription=description,
-            partSize="%i" % JUNK_SIZE
+            partSize="%i" % CHUNK_SIZE
         )
         upload_id = response['uploadId']
         
-        # start uploading junks to AWS
+        # start uploading chunks to AWS
         begin = 0
         end = 0
         cnt = 1
-        total = math.ceil(1.0*size / JUNK_SIZE)
+        total = math.ceil(1.0*size / CHUNK_SIZE)
         f = open(filename, 'rb')
         while True:
-            junk = f.read(JUNK_SIZE)
-            if not junk:
+            chunk = f.read(CHUNK_SIZE)
+            if not chunk:
                 break
-            end = begin + len(junk)
-            junk_hash = treehash.TreeHash()
-            junk_hash.update(junk)
+            end = begin + len(chunk)
+            chunk_hash = treehash.TreeHash()
+            chunk_hash.update(chunk)
             
             range = "bytes %i-%i/*" % (begin, end-1)
             
-            logging.info(" uploading junk:         %i of %i (%i-%i)" % (cnt, total, begin, end-1))
+            logging.info(" uploading chunk:         %i of %i (%i-%i)" % (cnt, total, begin, end-1))
             response = glacier_client.upload_multipart_part(
                 vaultName=vault_name,
-                body=junk,
+                body=chunk,
                 range=range,
-                checksum=junk_hash.hexdigest(),
+                checksum=chunk_hash.hexdigest(),
                 uploadId=upload_id
             )
             
-            if junk_hash.hexdigest() != response['checksum']:
-                logging.error("Checksum mismatch in junk: %s" % response['checksum'])
+            if chunk_hash.hexdigest() != response['checksum']:
+                logging.error("Checksum mismatch in chunk: %s" % response['checksum'])
                 sys.exit(2)
             
             begin = end
@@ -187,7 +187,7 @@ def main(argv):
     tree_hash = calc_hash(tar_file)
     logging.info('Hash (SHA-256 treehash): %s' % tree_hash.hexdigest())
     
-    description = "files from %s" % args.folder
+    description = "files from %s" % re.sub(r'[^\x00-\x7F]+','', args.folder)    # remove non ASCII chars
     archive_id = upload_to_glacier(tar_file, size, description, args.vault, tree_hash.hexdigest())
     
     delete_temp_file(tar_file)

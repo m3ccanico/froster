@@ -47,22 +47,36 @@ def start_list_job(glacier_client, vault_name):
 
 
 def monitor_job(glacier_client, vault_name, job_id):
-    SLEEP = 20*60
+    SLEEP = 20*60 # check every 20min if job is completed
     
     while True:
         response = glacier_client.list_jobs(
             vaultName = vault_name,
+            #limit='string',
+            #marker='string',
+            #statuscode='string',
             completed = 'true'
         )
         
+        found = False
+        completed = False
+        
         for job in response['JobList']:
             #print job
-            if job['JobId'] == job_id and job['Completed']:
-                return
-            else:
-                end = time.localtime(time.time() + SLEEP)
-                logging.info('Job is not completed yet, going back to sleep until %s' % time.strftime('%H:%M', end))
-                time.sleep(SLEEP)
+            if job['JobId'] == job_id:
+                found = True
+                completed = job['Completed']
+                break
+        
+        if found and completed:
+            return int(job['ArchiveSizeInBytes'])
+        
+        if found:
+            end = time.localtime(time.time() + SLEEP)
+            logging.info('Job is not completed yet, going back to sleep until %s' % time.strftime('%H:%M', end))
+            time.sleep(SLEEP)
+        else: 
+            logging.error('Job not found: %s' % job_id)
 
 
 def download_inventory(glacier_client, vault_name, job_id):

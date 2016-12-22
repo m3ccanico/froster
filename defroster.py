@@ -69,59 +69,82 @@ def monitor_job(glacier_client, vault_name, job_id):
             completed = 'true'
         )
         
+        found = False
+        completed = False
+        
         for job in response['JobList']:
-            if job['JobId'] == job_id and job['Completed']:
-                return job['RetrievalByteRange']
-            else:
-                end = time.localtime(time.time() + SLEEP)
-                logging.info('Job is not completed yet, going back to sleep until %s' % time.strftime('%H:%M', end))
-                time.sleep(SLEEP)
+            #print job
+            if job['JobId'] == job_id:
+                found = True
+                completed = job['Completed']
+                break
+        
+        if found and completed:
+            return int(job['ArchiveSizeInBytes'])
+        
+        if found:
+            end = time.localtime(time.time() + SLEEP)
+            logging.info('Job is not completed yet, going back to sleep until %s' % time.strftime('%H:%M', end))
+            time.sleep(SLEEP)
+        else: 
+            logging.error('Job not found: %s' % job_id)
 
 
-def download_archive(glacier_client, vault_name, job_id, byte_range, tree_hash_hex):
+def download_archive(glacier_client, vault_name, job_id, size, tree_hash_hex):
     SIZE_LIMIT = 100*1024*1024       # 100 MB is the recommendation
-    JUNK_SIZE = 16*1024*1024         # must be a power of 2 and > 1MB
-    
-    (start, end) = byte_range.split('-')
-    size = int(end)
+    CHUNK_SIZE = 16*1024*1024         # must be a power of 2 and > 1MB
     
     tar_file_name = tempfile.mktemp('.tar')
     
     if size > SIZE_LIMIT:
-        logging.info('Downloading in junks')
+        logging.info('Downloading in chunks')
         begin = 0
         end = 0
-        f = open(tar_file_name, 'w+')
-        while True:
-            end = begin + JUNK_SIZE
-            
-            # if the last junk only request to the end
-            if end > (size - 1):
-                end = size - 1
-            
-            range = 'bytes=%i-%i' % (begin, end-1)
-            response = glacier_client.get_job_output(
-                vaultName = vault_name,
-                jobId = job_id,
-                range = range
-            )
-            
-            # write junk to file
-            body = response['body']
-            while True:
-                data = body.read(1024*1024)
-                if data:
-                    f.write(data)
-                else:
-                    # stop loop if there is no more data left
-                    break
-            
-            # stop loop if download completed
-            if end + 1 == size:
-                break
+        cnt = 1
+        total = math.ceil(1.0*size / CHUNK_SIZE)
         
-        f.close()
-        # TODO
+        with open(tar_file_name, 'w+') as f:
+            while True:
+                end = begin + CHUNK_SIZE
+                
+                # if the last chunk only request to the end
+                if end > (size - 1):
+                    end = size
+                
+                range = 'bytes=%i-%i' % (begin, end-1)
+                
+                #logging.info(" downloading chunk:         %i of %i (%i-%i)" % (cnt, total, begin, end-1))
+                response = glacier_client.get_job_output(
+                    vaultName = vault_name,
+                    jobId = job_id,
+                    range = range
+                )
+                
+                # write chunk to file
+                tree_hash = treehash.TreeHash()
+                body = response['body']
+                while True:
+                    data = body.read(1024*1024)
+                    if data:
+                        f.write(data)
+                        tree_hash.update(data)
+                    else:
+                        # stop loop if there is no more data left
+                        break
+                
+                # got all parts check chunk checksum
+                if response['checksum'] == tree_hash.hexdigest():
+                    logging.info(" downloading chunk: %i of %i (%i-%i) - OK" % (cnt, total, begin, end-1))
+                else:
+                    logging.info(" downloading chunk: %i of %i (%i-%i) - Checksum missmatch" % (cnt, total, begin, end-1))
+                    sys.exit(2)
+                
+                # stop loop if download completed
+                if end == size:
+                    break
+                
+                begin = end
+                cnt += 1
     else:
         logging.info('Downloading as one, writing to: %s' % tar_file_name)
         response = glacier_client.get_job_output(
@@ -132,14 +155,13 @@ def download_archive(glacier_client, vault_name, job_id, byte_range, tree_hash_h
         
         # write stream to file
         body = response['body']
-        f = open(tar_file_name, 'w+')
-        while True:
-            data = body.read(1024*1024)
-            if data:
-                f.write(data)
-            else:
-                break
-        f.close()
+        with open(tar_file_name, 'w+') as f:
+            while True:
+                data = body.read(1024*1024)
+                if data:
+                    f.write(data)
+                else:
+                    break
         
     # check checksum
     tree_hash = calc_hash(tar_file_name)
@@ -165,9 +187,8 @@ def calc_hash(filename):
 
 
 def unpack_tar_file(tar_file_name, output_folder):
-    tar_file = tarfile.open(tar_file_name, mode='r|*')
-    tar_file.extractall(output_folder)
-    tar_file.close()
+    with tarfile.open(tar_file_name, mode='r|*') as tar_file:
+        tar_file.extractall(output_folder)
 
 
 def delete_temp_file(filename):
@@ -200,28 +221,28 @@ def main(argv):
     
     glacier_client = boto3.client('glacier')
     #job_id, tree_hash_hex = start_retrieval_job(glacier_client, args.vault, args.archive_id)
-    # 190 MB job
+    ## 190 MB job
     job_id = 'p1Uv1IN7BQaveZLr843hheHQ1rrF47k37HscMl038m_TPtKMlyWFuXGTVc4A_o2Gknqp0wqCFA0sfLjaLHineXHkkBgb'
     tree_hash_hex = '37436496846009fd0c40fac72db10ff61457074ee4af730ef5a3abb6a06a367b'
-    # 3 MB job
-    #job_id = 'hwz0r-BfGXJ69ks5iC6PPA4AnAEVpd222G1mGOUMaG1OuP0qO8oy_iqq7mQxwOzL7Qpz5FlPhd6eVF4Tx0MMdtM4X5be'
+    ## 3 MB job
+    # job_id = 'hwz0r-BfGXJ69ks5iC6PPA4AnAEVpd222G1mGOUMaG1OuP0qO8oy_iqq7mQxwOzL7Qpz5FlPhd6eVF4Tx0MMdtM4X5be'
     #tree_hash_hex = '3b0a8b676f33708ef577838a68cf1a1c591c981af1f9d03a50a568af79c4965d'
     logging.info('Job is created: %s' % job_id)    
     
-    byte_range = monitor_job(glacier_client, args.vault, job_id)
+    size = monitor_job(glacier_client, args.vault, job_id)
     #byte_range = '0-3194879'
-    logging.info('Job is completed. Byte range: %s' % byte_range)
+    logging.info('Job is completed, size: %s (%i)' % (sizeof_fmt(size), size))
     
-    tar_file_name = download_archive(glacier_client, args.vault, job_id, byte_range, tree_hash_hex)
+    tar_file_name = download_archive(glacier_client, args.vault, job_id, size, tree_hash_hex)
     #tar_file_name = '/var/folders/f2/jncgl3d13hd_lpx5x9290gmw0000gn/T/tmpToNSsp.tar'
-    size = get_file_size(tar_file_name)
+    #size = get_file_size(tar_file_name)
     logging.info('Downloaded TAR file: %s (%s)' % (tar_file_name, sizeof_fmt(size)))
     
     unpack_tar_file(tar_file_name, args.folder)
     logging.info('Unpacket TAR file to: %s', args.folder)
     
     delete_temp_file(tar_file_name)
-    logging.info('Removed temporary file')
+    logging.info('Removed temporary TAR file')
 
 
 if __name__ == "__main__":
