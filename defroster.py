@@ -1,16 +1,5 @@
 #!/usr/bin/env python
 
-# pip install boto3 treehash
-#
-# AWS credentials in ~/.aws/credentials:
-# [default]
-# aws_access_key_id=secret
-# aws_secret_access_key=secret
-#
-# AWS region in ~/aws/settings:
-# [default]
-# region=ap-southeast-2
-
 
 import sys
 import os

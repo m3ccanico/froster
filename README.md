@@ -1,8 +1,50 @@
 # Introduction
 
+Froster is a collection of three scripts to upload, download, or list data on Amazon Glacier.
+
 # Installation
 
+Download the scripts as a ZIP file or clone them with git:
+```bash
+git clone https://github.com/m3ccanico/froster.git
+```
+
+You'll need Python installed on you system and you might need to install additional Pyhton modules:
+```bash
+pip install boto3 treehash
+```
+
+Test them with
+```bash
+./list.php -h
+```
+
 # Configuration
+
+## AWS
+
+You'll need to have a AWS account (https://aws.amazon.com/) to run these scripts. In AWS you'll need to
+1. Create a Galcier Vault (e.g. Photos)
+2. Create an user (e.g. frosty) for the script under the IAM. This will give you an *access key ID* and ab *secret access key*.
+3. Give the user the permiss *AmazonGlacierFullAccess*
+
+## On your system
+
+Create the file `~/.aws/config` and add the follwing text:
+```text
+[default]
+region=ap-southeast-2
+```
+
+You might need to adjust the region based on your requirements. Typically you want to use the region closest to you for the best performance. Although, it might make sense to chose another region in case you are worried a natural disaster might affect your local copy of the data as well as the copy you upload to Amazon. You find the other region strings under the section *Amazon API Gateway* in http://docs.aws.amazon.com/general/latest/gr/rande.html.
+
+Create the file `~/.aws/credentials` and add the follwing text:
+```text
+[default]
+aws_access_key_id=SECRETSECRETSECRETSE
+aws_secret_access_key=0123456789secret0123456789secret01234567
+```
+Obviously you'll need to copy/paste the *access key ID* and the *secret access key* from the AWS web interface.
 
 # Usage
 
