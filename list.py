@@ -71,8 +71,8 @@ def main(argv):
     logging.info('List archives in %s' % args.vault)
     
     glacier_client = boto3.client('glacier')
-    #job_id = start_list_job(glacier_client, args.vault)
-    job_id = 'OtXy6xs7IXyCQKz7oLy0i1PVN-Ym-hJgxI9osCCJ3ZBE0BjRGfHqwWry2sj_c4UcghPNxTn7spF6cU1beronoNNCamjT'
+    job_id = start_list_job(glacier_client, args.vault)
+    #job_id = 'OtXy6xs7IXyCQKz7oLy0i1PVN-Ym-hJgxI9osCCJ3ZBE0BjRGfHqwWry2sj_c4UcghPNxTn7spF6cU1beronoNNCamjT'
     
     monitor_job(glacier_client, args.vault, job_id, args.timeout)
     logging.info('Inventory is ready')
