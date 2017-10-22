@@ -26,7 +26,10 @@ def monitor_job(glacier_client, vault_name, job_id, timeout):
                 break
         
         if found and completed:
-            return int(job['ArchiveSizeInBytes'])
+            if job.has_key('ArchiveSizeInBytes'):
+                return int(job['ArchiveSizeInBytes'])
+            else:
+                return
         
         if found:
             end = time.localtime(time.time() + SLEEP)
@@ -63,4 +66,4 @@ def get_tree_hash_of_file(filename):
                 break
             tree_hash.update(data)
     
-    return tree_hash.hexdump()
+    return tree_hash.hexdigest()

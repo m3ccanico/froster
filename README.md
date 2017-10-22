@@ -75,3 +75,9 @@ Download the archive `xpZ...` from the vault Photos and unpack it into the folde
   xpZrRLqP7YSrG4xKvhI6C-eUlHrC2crbHFhygIVPTdufwH9tyH1kIo_ZxSZyt-WLANc-O-38wOuXppQAzoMH8vkEbfj5lbhu4SvIfXx9WJjyRSKmgabcLycxjl2KUDG1NKVvoQlYAQ \
   ~/tmp
 ```
+
+Delete an archive 'xpZ...' from the vault Photos:
+```bash
+./zap.py --info --vault Photos \
+  xpZrRLqP7YSrG4xKvhI6C-eUlHrC2crbHFhygIVPTdufwH9tyH1kIo_ZxSZyt-WLANc-O-38wOuXppQAzoMH8vkEbfj5lbhu4SvIfXx9WJjyRSKmgabcLycxjl2KUDG1NKVvoQlYAQ
+```

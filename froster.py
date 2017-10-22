@@ -56,7 +56,7 @@ def upload_to_glacier(filename, size, description, vault_name, tree_hash):
     glacier_client = boto3.client('glacier')
     
     if size > SIZE_LIMIT:
-        logging.info("Uploading multipart:     %s" % filename)
+        logging.info("Uploading multipart: %s" % filename)
         
         # inform AWS that we want to upload chunks
         response = glacier_client.initiate_multipart_upload(
@@ -82,7 +82,7 @@ def upload_to_glacier(filename, size, description, vault_name, tree_hash):
                 
                 range = "bytes %i-%i/*" % (begin, end-1)
                 
-                logging.info(" uploading chunk:         %i of %i (%i-%i)" % (cnt, total, begin, end-1))
+                logging.info(" uploading chunk: %i of %i (%i-%i)" % (cnt, total, begin, end-1))
                 response = glacier_client.upload_multipart_part(
                     vaultName=vault_name,
                     body=chunk,
@@ -112,7 +112,7 @@ def upload_to_glacier(filename, size, description, vault_name, tree_hash):
         archive_id = response['archiveId']
         
     else:
-        logging.info("Uploading:               %s" % filename)
+        logging.info("Uploading: %s" % filename)
         response = glacier_client.upload_archive(
             vaultName=vault_name, 
             archiveDescription=description,
