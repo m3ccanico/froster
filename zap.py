@@ -15,7 +15,7 @@ from common import sizeof_fmt
 
 def read_parameter(argv):
     
-    parser = argparse.ArgumentParser(description='Delete san archives in an Amazon Glacier vault.')
+    parser = argparse.ArgumentParser(description='Deletes an archives in an Amazon Glacier vault.')
     parser.add_argument('-a', '--vault', default='Photos', help='the name of the vault the archive is deleted from')
     parser.add_argument('-d', '--debug', action='store_true', default=False, help='if debugging and info messages should be shown (default=no)')
     parser.add_argument('-i', '--info', action='store_true', default=False, help='if info messages should be shown (default=no)')
